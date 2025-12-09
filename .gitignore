@@ -46,6 +46,7 @@ checkpoints/
 ldm_checkpoints/
 controlnet_checkpoints/
 weights/
+models/
 
 # Training outputs
 samples/

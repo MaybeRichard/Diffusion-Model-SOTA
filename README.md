@@ -15,6 +15,7 @@ This repository contains implementations of state-of-the-art diffusion models fo
 
 | Model | Description | Use Case |
 |-------|-------------|----------|
+| **DDPM** | Denoising Diffusion Probabilistic Model | Basic diffusion model (pixel-space) |
 | **LDM** | Class-Conditional Latent Diffusion Model | Generate images by class label |
 | **ControlNet** | Mask-Guided Image Generation | Generate images following mask structure |
 | **DiT** | Diffusion Transformer (Meta) | SOTA class-conditional generation with Transformer backbone |
@@ -26,6 +27,92 @@ pip install torch torchvision diffusers accelerate tqdm tensorboard pillow
 ```
 
 Or install from requirements.txt in each model directory.
+
+---
+
+### DDPM (Denoising Diffusion Probabilistic Model)
+
+Classic pixel-space diffusion model. Includes both unconditional and class-conditional variants.
+
+#### Architecture
+- **UNet**: Custom UNet with self-attention layers
+- **Time Embedding**: Sinusoidal positional encoding
+- **Class Embedding**: Learned embeddings (conditional version)
+- **EMA**: Exponential moving average for stable generation
+
+#### Variants
+- `ddpm.py`: Unconditional DDPM
+- `ddpm_conditional.py`: Class-conditional DDPM with CFG
+
+#### Data Structure
+ImageNet-style folder structure:
+```
+data_root/
+    class_0/
+        image1.png
+        image2.png
+    class_1/
+        image1.png
+        image2.png
+```
+
+#### Training
+
+```python
+# Unconditional DDPM - modify ddpm.py launch() function:
+args.run_name = "DDPM_Uncondtional"
+args.epochs = 500
+args.batch_size = 12
+args.image_size = 64
+args.dataset_path = "/path/to/dataset"
+args.device = "cuda"
+args.lr = 3e-4
+
+# Then run:
+python ddpm.py
+
+# Conditional DDPM - modify ddpm_conditional.py launch() function:
+args.run_name = "DDPM_conditional"
+args.epochs = 300
+args.batch_size = 14
+args.image_size = 64
+args.num_classes = 10
+args.dataset_path = "/path/to/dataset"
+
+# Then run:
+python ddpm_conditional.py
+```
+
+#### Inference
+
+```python
+import torch
+from modules import UNet_conditional, count_parameters
+from ddpm_conditional import Diffusion
+
+device = "cuda"
+img_size = 64
+num_classes = 10
+
+# Load model
+model = UNet_conditional(num_classes=num_classes, img_size=img_size).to(device)
+ckpt = torch.load("./models/DDPM_conditional/ckpt.pt", weights_only=False)
+model.load_state_dict(ckpt)
+
+# Sample
+diffusion = Diffusion(img_size=img_size, device=device)
+labels = torch.Tensor([0, 1, 2, 3]).long().to(device)
+samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True)
+```
+
+#### Key Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `noise_steps` | Number of diffusion steps | 1000 |
+| `cfg_scale` | CFG strength (conditional only) | 3 |
+| `image_size` | Image resolution | 64 |
+| `attn_threshold` | Max size for self-attention (saves VRAM) | 64 |
 
 ---
 
@@ -326,6 +413,7 @@ Both models provide detailed output during training and inference:
 
 | 模型 | 描述 | 用途 |
 |------|------|------|
+| **DDPM** | 去噪扩散概率模型 | 基础扩散模型（像素空间） |
 | **LDM** | 类别条件潜在扩散模型 | 根据类别标签生成图像 |
 | **ControlNet** | 掩码引导图像生成 | 生成遵循掩码结构的图像 |
 | **DiT** | Diffusion Transformer (Meta) | 使用Transformer架构的SOTA类别条件生成 |
@@ -337,6 +425,92 @@ pip install torch torchvision diffusers accelerate tqdm tensorboard pillow
 ```
 
 或从各模型目录下的 requirements.txt 安装。
+
+---
+
+### DDPM（去噪扩散概率模型）
+
+经典的像素空间扩散模型。包含无条件和类别条件两种变体。
+
+#### 架构
+- **UNet**: 自定义UNet，带自注意力层
+- **时间嵌入**: 正弦位置编码
+- **类别嵌入**: 可学习嵌入（条件版本）
+- **EMA**: 指数移动平均，用于稳定生成
+
+#### 变体
+- `ddpm.py`: 无条件DDPM
+- `ddpm_conditional.py`: 类别条件DDPM，支持CFG
+
+#### 数据结构
+ImageNet风格的文件夹结构：
+```
+data_root/
+    class_0/
+        image1.png
+        image2.png
+    class_1/
+        image1.png
+        image2.png
+```
+
+#### 训练
+
+```python
+# 无条件DDPM - 修改 ddpm.py 中的 launch() 函数：
+args.run_name = "DDPM_Uncondtional"
+args.epochs = 500
+args.batch_size = 12
+args.image_size = 64
+args.dataset_path = "/path/to/dataset"
+args.device = "cuda"
+args.lr = 3e-4
+
+# 然后运行：
+python ddpm.py
+
+# 条件DDPM - 修改 ddpm_conditional.py 中的 launch() 函数：
+args.run_name = "DDPM_conditional"
+args.epochs = 300
+args.batch_size = 14
+args.image_size = 64
+args.num_classes = 10
+args.dataset_path = "/path/to/dataset"
+
+# 然后运行：
+python ddpm_conditional.py
+```
+
+#### 推理
+
+```python
+import torch
+from modules import UNet_conditional, count_parameters
+from ddpm_conditional import Diffusion
+
+device = "cuda"
+img_size = 64
+num_classes = 10
+
+# 加载模型
+model = UNet_conditional(num_classes=num_classes, img_size=img_size).to(device)
+ckpt = torch.load("./models/DDPM_conditional/ckpt.pt", weights_only=False)
+model.load_state_dict(ckpt)
+
+# 采样
+diffusion = Diffusion(img_size=img_size, device=device)
+labels = torch.Tensor([0, 1, 2, 3]).long().to(device)
+samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True)
+```
+
+#### 关键参数
+
+| 参数 | 描述 | 默认值 |
+|------|------|--------|
+| `noise_steps` | 扩散步数 | 1000 |
+| `cfg_scale` | CFG强度（仅条件版本） | 3 |
+| `image_size` | 图像分辨率 | 64 |
+| `attn_threshold` | 自注意力的最大尺寸（节省显存） | 64 |
 
 ---
 
@@ -634,6 +808,15 @@ torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
 Diffusion-Model-SOTA/
 ├── README.md
 ├── .gitignore
+├── ddpm/              # Pixel-space DDPM
+│   ├── ddpm.py        # Unconditional DDPM
+│   ├── ddpm_conditional.py  # Class-conditional DDPM
+│   ├── modules.py     # UNet architectures
+│   ├── utils.py       # Utilities
+│   ├── LICENSE
+│   └── scripts/
+│       ├── train.sh
+│       └── sample.sh
 ├── ldm/
 │   ├── dataset.py      # Dataset loading
 │   ├── models.py       # Model definitions
@@ -682,6 +865,13 @@ MIT License
 If you use this code in your research, please cite the original papers:
 
 ```bibtex
+@article{ho2020denoising,
+  title={Denoising diffusion probabilistic models},
+  author={Ho, Jonathan and Jain, Ajay and Abbeel, Pieter},
+  journal={NeurIPS},
+  year={2020}
+}
+
 @article{rombach2022high,
   title={High-resolution image synthesis with latent diffusion models},
   author={Rombach, Robin and Blattmann, Andreas and Lorenz, Dominik and Esser, Patrick and Ommer, Bj{\"o}rn},
