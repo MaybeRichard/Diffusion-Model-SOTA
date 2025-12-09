@@ -17,6 +17,7 @@ This repository contains implementations of state-of-the-art diffusion models fo
 |-------|-------------|----------|
 | **LDM** | Class-Conditional Latent Diffusion Model | Generate images by class label |
 | **ControlNet** | Mask-Guided Image Generation | Generate images following mask structure |
+| **DiT** | Diffusion Transformer (Meta) | SOTA class-conditional generation with Transformer backbone |
 
 ### Requirements
 
@@ -206,6 +207,101 @@ python inference.py \
 
 ---
 
+### DiT (Diffusion Transformer)
+
+**From Meta AI (facebookresearch/DiT)**
+
+State-of-the-art diffusion model using Transformer architecture instead of U-Net. Achieves FID 2.27 on ImageNet 256x256.
+
+#### Architecture
+- **VAE**: Pretrained `stabilityai/sd-vae-ft-ema` (frozen)
+- **DiT**: Transformer-based denoiser (trainable)
+- **Patchify**: Converts latent to patch tokens
+- Supports multiple model sizes: XL, L, B, S with patch sizes 2, 4, 8
+
+#### Available Models
+
+| Model | Params | FID-50K | Gflops |
+|-------|--------|---------|--------|
+| DiT-XL/2 | 675M | 2.27 | 119 |
+| DiT-XL/4 | 675M | - | - |
+| DiT-L/2 | 458M | - | - |
+| DiT-B/4 | 130M | 68.4 | - |
+| DiT-S/2 | 33M | - | - |
+
+#### Data Structure
+Same as LDM - ImageNet-style folder structure:
+```
+data_root/
+    class_0/
+        image1.png
+        image2.png
+    class_1/
+        image1.png
+        image2.png
+```
+
+#### Training
+
+```bash
+cd dit
+
+# Multi-GPU training with torchrun (required)
+torchrun --nnodes=1 --nproc_per_node=4 train.py \
+    --model DiT-XL/2 \
+    --data-path /path/to/imagenet/train \
+    --results-dir ./results \
+    --image-size 256 \
+    --global-batch-size 256 \
+    --epochs 1400
+
+# Smaller model for limited resources
+torchrun --nnodes=1 --nproc_per_node=2 train.py \
+    --model DiT-B/4 \
+    --data-path /path/to/data \
+    --global-batch-size 64 \
+    --num-classes 8  # Custom number of classes
+```
+
+#### Inference
+
+```bash
+cd dit
+
+# Sample with pretrained model (auto-downloads)
+python sample.py \
+    --model DiT-XL/2 \
+    --image-size 256 \
+    --num-sampling-steps 250 \
+    --cfg-scale 4.0 \
+    --seed 0
+
+# Sample with custom checkpoint
+python sample.py \
+    --model DiT-XL/2 \
+    --ckpt ./results/000-DiT-XL-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --cfg-scale 4.0
+
+# Batch sampling for FID evaluation (DDP)
+torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
+    --model DiT-XL/2 \
+    --num-fid-samples 50000
+```
+
+#### Key Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--model` | Model variant (DiT-XL/2, DiT-B/4, etc.) | DiT-XL/2 |
+| `--image-size` | Image resolution (256 or 512) | 256 |
+| `--cfg-scale` | CFG strength | 4.0 |
+| `--num-sampling-steps` | DDPM sampling steps | 250 |
+| `--global-batch-size` | Total batch across all GPUs | 256 |
+| `--num-classes` | Number of classes | 1000 |
+
+---
+
 ### Output Information
 
 Both models provide detailed output during training and inference:
@@ -232,6 +328,7 @@ Both models provide detailed output during training and inference:
 |------|------|------|
 | **LDM** | 类别条件潜在扩散模型 | 根据类别标签生成图像 |
 | **ControlNet** | 掩码引导图像生成 | 生成遵循掩码结构的图像 |
+| **DiT** | Diffusion Transformer (Meta) | 使用Transformer架构的SOTA类别条件生成 |
 
 ### 环境要求
 
@@ -421,6 +518,101 @@ python inference.py \
 
 ---
 
+### DiT（Diffusion Transformer）
+
+**来自 Meta AI (facebookresearch/DiT)**
+
+使用Transformer架构替代U-Net的SOTA扩散模型。在ImageNet 256x256上达到FID 2.27。
+
+#### 架构
+- **VAE**: 预训练 `stabilityai/sd-vae-ft-ema`（冻结）
+- **DiT**: 基于Transformer的去噪器（可训练）
+- **Patchify**: 将latent转换为patch tokens
+- 支持多种模型大小：XL、L、B、S，patch大小可选2、4、8
+
+#### 可用模型
+
+| 模型 | 参数量 | FID-50K | Gflops |
+|------|--------|---------|--------|
+| DiT-XL/2 | 675M | 2.27 | 119 |
+| DiT-XL/4 | 675M | - | - |
+| DiT-L/2 | 458M | - | - |
+| DiT-B/4 | 130M | 68.4 | - |
+| DiT-S/2 | 33M | - | - |
+
+#### 数据结构
+与LDM相同 - ImageNet风格的文件夹结构：
+```
+data_root/
+    class_0/
+        image1.png
+        image2.png
+    class_1/
+        image1.png
+        image2.png
+```
+
+#### 训练
+
+```bash
+cd dit
+
+# 多卡训练（使用torchrun，必须）
+torchrun --nnodes=1 --nproc_per_node=4 train.py \
+    --model DiT-XL/2 \
+    --data-path /path/to/imagenet/train \
+    --results-dir ./results \
+    --image-size 256 \
+    --global-batch-size 256 \
+    --epochs 1400
+
+# 资源有限时使用小模型
+torchrun --nnodes=1 --nproc_per_node=2 train.py \
+    --model DiT-B/4 \
+    --data-path /path/to/data \
+    --global-batch-size 64 \
+    --num-classes 8  # 自定义类别数
+```
+
+#### 推理
+
+```bash
+cd dit
+
+# 使用预训练模型采样（自动下载）
+python sample.py \
+    --model DiT-XL/2 \
+    --image-size 256 \
+    --num-sampling-steps 250 \
+    --cfg-scale 4.0 \
+    --seed 0
+
+# 使用自定义checkpoint采样
+python sample.py \
+    --model DiT-XL/2 \
+    --ckpt ./results/000-DiT-XL-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --cfg-scale 4.0
+
+# 批量采样用于FID评估（DDP）
+torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
+    --model DiT-XL/2 \
+    --num-fid-samples 50000
+```
+
+#### 关键参数
+
+| 参数 | 描述 | 默认值 |
+|------|------|--------|
+| `--model` | 模型变体（DiT-XL/2、DiT-B/4等） | DiT-XL/2 |
+| `--image-size` | 图像分辨率（256或512） | 256 |
+| `--cfg-scale` | CFG强度 | 4.0 |
+| `--num-sampling-steps` | DDPM采样步数 | 250 |
+| `--global-batch-size` | 所有GPU的总批次大小 | 256 |
+| `--num-classes` | 类别数量 | 1000 |
+
+---
+
 ### 输出信息
 
 两个模型在训练和推理时都提供详细输出：
@@ -451,15 +643,32 @@ Diffusion-Model-SOTA/
 │   └── scripts/
 │       ├── train.sh
 │       └── inference.sh
-└── controlnet/
-    ├── dataset.py      # Image-mask pair loading
-    ├── models.py       # ControlNet model
-    ├── train.py        # Training script
-    ├── inference.py    # Inference script
-    ├── requirements.txt
+├── controlnet/
+│   ├── dataset.py      # Image-mask pair loading
+│   ├── models.py       # ControlNet model
+│   ├── train.py        # Training script
+│   ├── inference.py    # Inference script
+│   ├── requirements.txt
+│   └── scripts/
+│       ├── train.sh
+│       └── inference.sh
+└── dit/                # From facebookresearch/DiT
+    ├── models.py       # DiT model definitions
+    ├── train.py        # DDP training script
+    ├── sample.py       # Single-GPU sampling
+    ├── sample_ddp.py   # Multi-GPU sampling
+    ├── download.py     # Pretrained weights download
+    ├── diffusion/      # Diffusion utilities
+    │   ├── __init__.py
+    │   ├── gaussian_diffusion.py
+    │   ├── diffusion_utils.py
+    │   ├── respace.py
+    │   └── timestep_sampler.py
+    ├── environment.yml
+    ├── LICENSE.txt     # CC-BY-NC License
     └── scripts/
         ├── train.sh
-        └── inference.sh
+        └── sample.sh
 ```
 
 ---
@@ -485,5 +694,12 @@ If you use this code in your research, please cite the original papers:
   author={Zhang, Lvmin and Rao, Anyi and Agrawala, Maneesh},
   journal={ICCV},
   year={2023}
+}
+
+@article{Peebles2022DiT,
+  title={Scalable Diffusion Models with Transformers},
+  author={William Peebles and Saining Xie},
+  year={2022},
+  journal={arXiv preprint arXiv:2212.09748},
 }
 ```

@@ -51,10 +51,12 @@ weights/
 samples/
 generated/
 outputs/
+results/
 logs/
 runs/
 tensorboard/
 wandb/
+visuals/
 
 # Data
 data/
@@ -64,6 +66,7 @@ datasets/
 *.tar.gz
 *.h5
 *.hdf5
+*.npz
 
 # System files
 .DS_Store
