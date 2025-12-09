@@ -60,7 +60,7 @@ def main(args):
     print(f"Starting rank={rank}, seed={seed}, world_size={dist.get_world_size()}.")
 
     if args.ckpt is None:
-        assert args.model == "DiT-XL/2", "Only DiT-XL/2 models are available for auto-download."
+        assert args.model == "DiT-XL/2", "Only DiT-XL/2 models are available for auto-download. Please provide --ckpt for other models."
         assert args.image_size in [256, 512]
         assert args.num_classes == 1000
 
@@ -105,15 +105,23 @@ def main(args):
     pbar = range(iterations)
     pbar = tqdm(pbar) if rank == 0 else pbar
     total = 0
-    for _ in pbar:
+    # Determine class labels to use
+    if args.class_labels is not None:
+        available_classes = args.class_labels
+    else:
+        available_classes = list(range(args.num_classes))
+
+    for iter_idx in pbar:
         # Sample inputs:
         z = torch.randn(n, model.in_channels, latent_size, latent_size, device=device)
-        y = torch.randint(0, args.num_classes, (n,), device=device)
+        # Evenly distribute across available classes
+        global_start = (iter_idx * global_batch_size) + (rank * n)
+        y = torch.tensor([available_classes[(global_start + i) % len(available_classes)] for i in range(n)], device=device)
 
         # Setup classifier-free guidance:
         if using_cfg:
             z = torch.cat([z, z], 0)
-            y_null = torch.tensor([1000] * n, device=device)
+            y_null = torch.tensor([args.num_classes] * n, device=device)
             y = torch.cat([y, y_null], 0)
             model_kwargs = dict(y=y, cfg_scale=args.cfg_scale)
             sample_fn = model.forward_with_cfg
@@ -148,13 +156,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
+    parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-B/2")
     parser.add_argument("--vae",  type=str, choices=["ema", "mse"], default="ema")
     parser.add_argument("--sample-dir", type=str, default="samples")
     parser.add_argument("--per-proc-batch-size", type=int, default=32)
     parser.add_argument("--num-fid-samples", type=int, default=50_000)
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
-    parser.add_argument("--num-classes", type=int, default=1000)
+    parser.add_argument("--num-classes", type=int, default=8)
     parser.add_argument("--cfg-scale",  type=float, default=1.5)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--global-seed", type=int, default=0)
@@ -162,5 +170,7 @@ if __name__ == "__main__":
                         help="By default, use TF32 matmuls. This massively accelerates sampling on Ampere GPUs.")
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
+    parser.add_argument("--class-labels", type=int, nargs='+', default=None,
+                        help="List of class labels to generate. If not specified, evenly distributes across all classes.")
     args = parser.parse_args()
     main(args)

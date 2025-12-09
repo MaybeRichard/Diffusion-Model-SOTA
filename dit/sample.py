@@ -25,7 +25,7 @@ def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.ckpt is None:
-        assert args.model == "DiT-XL/2", "Only DiT-XL/2 models are available for auto-download."
+        assert args.model == "DiT-XL/2", "Only DiT-XL/2 models are available for auto-download. Please provide --ckpt for other models."
         assert args.image_size in [256, 512]
         assert args.num_classes == 1000
 
@@ -43,41 +43,89 @@ def main(args):
     diffusion = create_diffusion(str(args.num_sampling_steps))
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device)
 
-    # Labels to condition the model with (feel free to change):
-    class_labels = [207, 360, 387, 974, 88, 979, 417, 279]
+    # Labels to condition the model with:
+    if args.num_samples is not None:
+        n = args.num_samples
+        if args.class_labels is not None:
+            # Cycle through specified class_labels
+            class_labels = [args.class_labels[i % len(args.class_labels)] for i in range(n)]
+        else:
+            # Evenly distribute across all classes
+            class_labels = [i % args.num_classes for i in range(n)]
+    else:
+        if args.class_labels is not None:
+            class_labels = args.class_labels
+            n = len(class_labels)
+        else:
+            # Default: generate 8 samples evenly distributed
+            n = 8
+            class_labels = [i % args.num_classes for i in range(n)]
 
-    # Create sampling noise:
-    n = len(class_labels)
-    z = torch.randn(n, 4, latent_size, latent_size, device=device)
-    y = torch.tensor(class_labels, device=device)
+    # Sample images in batches to avoid OOM
+    batch_size = args.batch_size
+    num_batches = (n + batch_size - 1) // batch_size
+    sample_idx = 0
 
-    # Setup classifier-free guidance:
-    z = torch.cat([z, z], 0)
-    y_null = torch.tensor([1000] * n, device=device)
-    y = torch.cat([y, y_null], 0)
-    model_kwargs = dict(y=y, cfg_scale=args.cfg_scale)
+    print(f"Generating {n} images in {num_batches} batches (batch_size={batch_size})...")
 
-    # Sample images:
-    samples = diffusion.p_sample_loop(
-        model.forward_with_cfg, z.shape, z, clip_denoised=False, model_kwargs=model_kwargs, progress=True, device=device
-    )
-    samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
-    samples = vae.decode(samples / 0.18215).sample
+    for batch_i in range(num_batches):
+        start_idx = batch_i * batch_size
+        end_idx = min(start_idx + batch_size, n)
+        batch_labels = class_labels[start_idx:end_idx]
+        batch_n = len(batch_labels)
 
-    # Save and display images:
-    save_image(samples, "sample.png", nrow=4, normalize=True, value_range=(-1, 1))
+        # Create sampling noise for this batch
+        z = torch.randn(batch_n, 4, latent_size, latent_size, device=device)
+        y = torch.tensor(batch_labels, device=device)
+
+        # Setup classifier-free guidance
+        z = torch.cat([z, z], 0)
+        y_null = torch.tensor([args.num_classes] * batch_n, device=device)
+        y = torch.cat([y, y_null], 0)
+        model_kwargs = dict(y=y, cfg_scale=args.cfg_scale)
+
+        # Sample images
+        samples = diffusion.p_sample_loop(
+            model.forward_with_cfg, z.shape, z, clip_denoised=False,
+            model_kwargs=model_kwargs, progress=True, device=device
+        )
+        samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
+        samples = vae.decode(samples / 0.18215).sample
+
+        # Save images from this batch
+        for sample, label in zip(samples, batch_labels):
+            save_image(sample, f"{args.output_dir}/sample_class{label}_{sample_idx}.png",
+                       normalize=True, value_range=(-1, 1))
+            sample_idx += 1
+
+        print(f"Batch {batch_i + 1}/{num_batches} done, saved {sample_idx}/{n} images")
+
+    print(f"Finished! Saved {n} images to {args.output_dir}/")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
+    parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-B/2")
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="mse")
     parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
-    parser.add_argument("--num-classes", type=int, default=1000)
+    parser.add_argument("--num-classes", type=int, default=8)
     parser.add_argument("--cfg-scale", type=float, default=4.0)
     parser.add_argument("--num-sampling-steps", type=int, default=250)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
+    parser.add_argument("--class-labels", type=int, nargs='+', default=None,
+                        help="List of class labels to generate. If not specified, evenly distributes across all classes.")
+    parser.add_argument("--num-samples", type=int, default=None,
+                        help="Number of images to generate. If not specified with class-labels, generates one per specified class.")
+    parser.add_argument("--batch-size", type=int, default=8,
+                        help="Batch size for sampling (reduce if OOM)")
+    parser.add_argument("--output-dir", type=str, default="samples",
+                        help="Directory to save generated images")
     args = parser.parse_args()
+
+    # Create output directory if it doesn't exist
+    import os
+    os.makedirs(args.output_dir, exist_ok=True)
+
     main(args)

@@ -308,16 +308,15 @@ State-of-the-art diffusion model using Transformer architecture instead of U-Net
 
 #### Available Models
 
-| Model | Params | FID-50K | Gflops |
-|-------|--------|---------|--------|
-| DiT-XL/2 | 675M | 2.27 | 119 |
-| DiT-XL/4 | 675M | - | - |
-| DiT-L/2 | 458M | - | - |
-| DiT-B/4 | 130M | 68.4 | - |
-| DiT-S/2 | 33M | - | - |
+| Model | Params | FID-50K | Recommended Use |
+|-------|--------|---------|-----------------|
+| DiT-XL/2 | 675M | 2.27 | Large datasets (ImageNet) |
+| DiT-L/2 | 458M | - | Medium datasets |
+| DiT-B/2 | 130M | 68.4 | **Custom datasets (default)** |
+| DiT-S/2 | 33M | - | Fast experiments |
 
 #### Data Structure
-Same as LDM - ImageNet-style folder structure:
+ImageNet-style folder structure:
 ```
 data_root/
     class_0/
@@ -334,20 +333,22 @@ data_root/
 cd dit
 
 # Multi-GPU training with torchrun (required)
+# DiT-B/2 is recommended for custom datasets
 torchrun --nnodes=1 --nproc_per_node=4 train.py \
-    --model DiT-XL/2 \
-    --data-path /path/to/imagenet/train \
+    --model DiT-B/2 \
+    --data-path /path/to/data \
     --results-dir ./results \
     --image-size 256 \
+    --num-classes 8 \
     --global-batch-size 256 \
     --epochs 1400
 
-# Smaller model for limited resources
-torchrun --nnodes=1 --nproc_per_node=2 train.py \
-    --model DiT-B/4 \
+# Large model for bigger datasets
+torchrun --nnodes=1 --nproc_per_node=8 train.py \
+    --model DiT-XL/2 \
     --data-path /path/to/data \
-    --global-batch-size 64 \
-    --num-classes 8  # Custom number of classes
+    --num-classes 8 \
+    --global-batch-size 256
 ```
 
 #### Inference
@@ -355,37 +356,53 @@ torchrun --nnodes=1 --nproc_per_node=2 train.py \
 ```bash
 cd dit
 
-# Sample with pretrained model (auto-downloads)
+# Basic sampling (generates 8 images across all classes)
 python sample.py \
-    --model DiT-XL/2 \
-    --image-size 256 \
-    --num-sampling-steps 250 \
-    --cfg-scale 4.0 \
-    --seed 0
-
-# Sample with custom checkpoint
-python sample.py \
-    --model DiT-XL/2 \
-    --ckpt ./results/000-DiT-XL-2/checkpoints/0050000.pt \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
     --num-classes 8 \
-    --cfg-scale 4.0
+    --output-dir ./samples
+
+# Generate specific classes
+python sample.py \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --class-labels 0 1 2 3 \
+    --output-dir ./samples
+
+# Generate many samples of one class
+python sample.py \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --class-labels 0 \
+    --num-samples 50 \
+    --batch-size 16 \
+    --output-dir ./samples
 
 # Batch sampling for FID evaluation (DDP)
 torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
-    --model DiT-XL/2 \
-    --num-fid-samples 50000
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --num-fid-samples 50000 \
+    --cfg-scale 1.5
 ```
 
 #### Key Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--model` | Model variant (DiT-XL/2, DiT-B/4, etc.) | DiT-XL/2 |
+| `--model` | Model variant (DiT-XL/2, DiT-B/2, etc.) | DiT-B/2 |
 | `--image-size` | Image resolution (256 or 512) | 256 |
+| `--num-classes` | Number of classes | 8 |
 | `--cfg-scale` | CFG strength | 4.0 |
 | `--num-sampling-steps` | DDPM sampling steps | 250 |
-| `--global-batch-size` | Total batch across all GPUs | 256 |
-| `--num-classes` | Number of classes | 1000 |
+| `--class-labels` | Specific classes to generate (e.g., 0 1 2) | All |
+| `--num-samples` | Total images to generate | 8 |
+| `--batch-size` | Sampling batch size (prevents OOM) | 8 |
+| `--output-dir` | Output directory for samples | samples |
 
 ---
 
@@ -758,16 +775,15 @@ python inference.py \
 
 #### 可用模型
 
-| 模型 | 参数量 | FID-50K | Gflops |
-|------|--------|---------|--------|
-| DiT-XL/2 | 675M | 2.27 | 119 |
-| DiT-XL/4 | 675M | - | - |
-| DiT-L/2 | 458M | - | - |
-| DiT-B/4 | 130M | 68.4 | - |
-| DiT-S/2 | 33M | - | - |
+| 模型 | 参数量 | FID-50K | 推荐用途 |
+|------|--------|---------|----------|
+| DiT-XL/2 | 675M | 2.27 | 大数据集（ImageNet） |
+| DiT-L/2 | 458M | - | 中等数据集 |
+| DiT-B/2 | 130M | 68.4 | **自定义数据集（默认）** |
+| DiT-S/2 | 33M | - | 快速实验 |
 
 #### 数据结构
-与LDM相同 - ImageNet风格的文件夹结构：
+ImageNet风格的文件夹结构：
 ```
 data_root/
     class_0/
@@ -784,20 +800,22 @@ data_root/
 cd dit
 
 # 多卡训练（使用torchrun，必须）
+# DiT-B/2 推荐用于自定义数据集
 torchrun --nnodes=1 --nproc_per_node=4 train.py \
-    --model DiT-XL/2 \
-    --data-path /path/to/imagenet/train \
+    --model DiT-B/2 \
+    --data-path /path/to/data \
     --results-dir ./results \
     --image-size 256 \
+    --num-classes 8 \
     --global-batch-size 256 \
     --epochs 1400
 
-# 资源有限时使用小模型
-torchrun --nnodes=1 --nproc_per_node=2 train.py \
-    --model DiT-B/4 \
+# 大模型用于更大数据集
+torchrun --nnodes=1 --nproc_per_node=8 train.py \
+    --model DiT-XL/2 \
     --data-path /path/to/data \
-    --global-batch-size 64 \
-    --num-classes 8  # 自定义类别数
+    --num-classes 8 \
+    --global-batch-size 256
 ```
 
 #### 推理
@@ -805,37 +823,53 @@ torchrun --nnodes=1 --nproc_per_node=2 train.py \
 ```bash
 cd dit
 
-# 使用预训练模型采样（自动下载）
+# 基础采样（生成8张图像，分布在所有类别）
 python sample.py \
-    --model DiT-XL/2 \
-    --image-size 256 \
-    --num-sampling-steps 250 \
-    --cfg-scale 4.0 \
-    --seed 0
-
-# 使用自定义checkpoint采样
-python sample.py \
-    --model DiT-XL/2 \
-    --ckpt ./results/000-DiT-XL-2/checkpoints/0050000.pt \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
     --num-classes 8 \
-    --cfg-scale 4.0
+    --output-dir ./samples
+
+# 生成指定类别
+python sample.py \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --class-labels 0 1 2 3 \
+    --output-dir ./samples
+
+# 生成单个类别的多张图像
+python sample.py \
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --class-labels 0 \
+    --num-samples 50 \
+    --batch-size 16 \
+    --output-dir ./samples
 
 # 批量采样用于FID评估（DDP）
 torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
-    --model DiT-XL/2 \
-    --num-fid-samples 50000
+    --model DiT-B/2 \
+    --ckpt ./results/000-DiT-B-2/checkpoints/0050000.pt \
+    --num-classes 8 \
+    --num-fid-samples 50000 \
+    --cfg-scale 1.5
 ```
 
 #### 关键参数
 
 | 参数 | 描述 | 默认值 |
 |------|------|--------|
-| `--model` | 模型变体（DiT-XL/2、DiT-B/4等） | DiT-XL/2 |
+| `--model` | 模型变体（DiT-XL/2、DiT-B/2等） | DiT-B/2 |
 | `--image-size` | 图像分辨率（256或512） | 256 |
+| `--num-classes` | 类别数量 | 8 |
 | `--cfg-scale` | CFG强度 | 4.0 |
 | `--num-sampling-steps` | DDPM采样步数 | 250 |
-| `--global-batch-size` | 所有GPU的总批次大小 | 256 |
-| `--num-classes` | 类别数量 | 1000 |
+| `--class-labels` | 指定生成的类别（如 0 1 2） | 全部 |
+| `--num-samples` | 生成图像总数 | 8 |
+| `--batch-size` | 采样批次大小（防止OOM） | 8 |
+| `--output-dir` | 输出目录 | samples |
 
 ---
 
