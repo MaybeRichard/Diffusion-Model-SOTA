@@ -404,6 +404,58 @@ Both models provide detailed output during training and inference:
 
 ---
 
+### Evaluation Metrics
+
+We provide a unified evaluation script to compute standard generative model metrics.
+
+#### Supported Metrics
+
+| Metric | Model | Description |
+|--------|-------|-------------|
+| **FID** | InceptionV3 | Fréchet Inception Distance - measures distribution similarity |
+| **Precision** | VGG16 | Fraction of generated images that fall within real data manifold |
+| **Recall** | VGG16 | Fraction of real images covered by generated data manifold |
+
+#### Usage
+
+```python
+# Modify paths in evaluation/precision_recall.py:
+REAL_IMAGES_DIR = "/path/to/real/images"
+GEN_IMAGES_DIR = "/path/to/generated/images"
+BATCH_SIZE = 32
+
+# Run evaluation
+cd evaluation
+python precision_recall.py
+```
+
+#### Output Example
+
+```
+========================================
+FINAL EVALUATION REPORT
+Real Data: real_images
+Gen Data:  generated_images
+========================================
+FID (InceptionV3):     12.3456
+Precision (VGG16):     0.8521
+Recall (VGG16):        0.7834
+========================================
+```
+
+#### Interpretation
+
+- **FID**: Lower is better. Measures overall quality and diversity.
+  - < 10: Excellent
+  - 10-50: Good
+  - > 50: Poor
+
+- **Precision**: Higher is better (0-1). High precision = generated images look realistic.
+
+- **Recall**: Higher is better (0-1). High recall = generated images cover the diversity of real data.
+
+---
+
 <a name="chinese"></a>
 ## 中文
 
@@ -802,12 +854,68 @@ torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
 
 ---
 
+### 评估指标
+
+我们提供统一的评估脚本来计算标准的生成模型指标。
+
+#### 支持的指标
+
+| 指标 | 模型 | 描述 |
+|------|------|------|
+| **FID** | InceptionV3 | Fréchet Inception Distance - 衡量分布相似性 |
+| **Precision** | VGG16 | 生成图像落入真实数据流形的比例 |
+| **Recall** | VGG16 | 真实图像被生成数据流形覆盖的比例 |
+
+#### 使用方法
+
+```python
+# 修改 evaluation/precision_recall.py 中的路径：
+REAL_IMAGES_DIR = "/path/to/real/images"
+GEN_IMAGES_DIR = "/path/to/generated/images"
+BATCH_SIZE = 32
+
+# 运行评估
+cd evaluation
+python precision_recall.py
+```
+
+#### 输出示例
+
+```
+========================================
+FINAL EVALUATION REPORT
+Real Data: real_images
+Gen Data:  generated_images
+========================================
+FID (InceptionV3):     12.3456
+Precision (VGG16):     0.8521
+Recall (VGG16):        0.7834
+========================================
+```
+
+#### 指标解读
+
+- **FID**: 越低越好。衡量整体质量和多样性。
+  - < 10: 优秀
+  - 10-50: 良好
+  - > 50: 较差
+
+- **Precision**: 越高越好（0-1）。高精度 = 生成图像看起来真实。
+
+- **Recall**: 越高越好（0-1）。高召回 = 生成图像覆盖真实数据的多样性。
+
+---
+
 ### Project Structure / 项目结构
 
 ```
 Diffusion-Model-SOTA/
 ├── README.md
 ├── .gitignore
+├── evaluation/        # Evaluation metrics
+│   ├── precision_recall.py  # FID, Precision, Recall
+│   ├── requirements.txt
+│   └── evaluate.sh
 ├── ddpm/              # Pixel-space DDPM
 │   ├── ddpm.py        # Unconditional DDPM
 │   ├── ddpm_conditional.py  # Class-conditional DDPM
