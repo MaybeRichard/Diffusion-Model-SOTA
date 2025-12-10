@@ -83,6 +83,23 @@ args.dataset_path = "/path/to/dataset"
 python ddpm_conditional.py
 ```
 
+```bash
+# Multi-GPU DDP training
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode train_ddp \
+    --dataset-path /path/to/dataset \
+    --num-classes 8 \
+    --image-size 256 \
+    --batch-size 8 \
+    --epochs 100
+
+# Resume training
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode train_ddp \
+    --dataset-path /path/to/dataset \
+    --resume
+```
+
 #### Inference
 
 ```python
@@ -105,6 +122,26 @@ labels = torch.Tensor([0, 1, 2, 3]).long().to(device)
 samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True)
 ```
 
+```bash
+# Multi-GPU DDP sampling for FID evaluation
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode sample_ddp \
+    --ckpt ./models/DDPM_conditional/ckpt.pt \
+    --use-ema \
+    --num-samples 8000 \
+    --num-classes 8 \
+    --batch-size 8 \
+    --output-dir ./samples
+
+# Single-GPU sampling
+python ddpm_conditional_ddp.py \
+    --mode sample \
+    --ckpt ./models/DDPM_conditional/ema_ckpt.pt \
+    --num-samples 100 \
+    --class-labels 0 1 2 3 \
+    --cfg-scale 3
+```
+
 #### Key Parameters
 
 | Parameter | Description | Default |
@@ -112,7 +149,8 @@ samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True
 | `noise_steps` | Number of diffusion steps | 1000 |
 | `cfg_scale` | CFG strength (conditional only) | 3 |
 | `image_size` | Image resolution | 64 |
-| `attn_threshold` | Max size for self-attention (saves VRAM) | 64 |
+| `--use-ema` | Use EMA model for sampling | False |
+| `--resume` | Resume training from checkpoint | False |
 
 ---
 
@@ -180,6 +218,14 @@ python inference.py \
     --num_samples 20 \
     --cfg_scale 4.0 \
     --seed 42
+
+# Batch generation per class (for FID evaluation)
+python inference_per_class.py \
+    --checkpoint ./ldm_checkpoints/checkpoint_best.pt \
+    --output_dir ./generated_per_class \
+    --total_samples 8000 \
+    --batch_size 16 \
+    --cfg_scale 3.0
 ```
 
 #### Key Parameters
@@ -550,6 +596,23 @@ args.dataset_path = "/path/to/dataset"
 python ddpm_conditional.py
 ```
 
+```bash
+# 多卡DDP训练
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode train_ddp \
+    --dataset-path /path/to/dataset \
+    --num-classes 8 \
+    --image-size 256 \
+    --batch-size 8 \
+    --epochs 100
+
+# 断点续训
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode train_ddp \
+    --dataset-path /path/to/dataset \
+    --resume
+```
+
 #### 推理
 
 ```python
@@ -572,6 +635,26 @@ labels = torch.Tensor([0, 1, 2, 3]).long().to(device)
 samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True)
 ```
 
+```bash
+# 多卡DDP采样（用于FID评估）
+torchrun --nnodes=1 --nproc_per_node=4 ddpm_conditional_ddp.py \
+    --mode sample_ddp \
+    --ckpt ./models/DDPM_conditional/ckpt.pt \
+    --use-ema \
+    --num-samples 8000 \
+    --num-classes 8 \
+    --batch-size 8 \
+    --output-dir ./samples
+
+# 单卡采样
+python ddpm_conditional_ddp.py \
+    --mode sample \
+    --ckpt ./models/DDPM_conditional/ema_ckpt.pt \
+    --num-samples 100 \
+    --class-labels 0 1 2 3 \
+    --cfg-scale 3
+```
+
 #### 关键参数
 
 | 参数 | 描述 | 默认值 |
@@ -579,7 +662,8 @@ samples = diffusion.sample(model, n=4, labels=labels, cfg_scale=3, log_time=True
 | `noise_steps` | 扩散步数 | 1000 |
 | `cfg_scale` | CFG强度（仅条件版本） | 3 |
 | `image_size` | 图像分辨率 | 64 |
-| `attn_threshold` | 自注意力的最大尺寸（节省显存） | 64 |
+| `--use-ema` | 使用EMA模型采样 | False |
+| `--resume` | 从checkpoint恢复训练 | False |
 
 ---
 
@@ -647,6 +731,14 @@ python inference.py \
     --num_samples 20 \
     --cfg_scale 4.0 \
     --seed 42
+
+# 按类别批量生成（用于FID评估）
+python inference_per_class.py \
+    --checkpoint ./ldm_checkpoints/checkpoint_best.pt \
+    --output_dir ./generated_per_class \
+    --total_samples 8000 \
+    --batch_size 16 \
+    --cfg_scale 3.0
 ```
 
 #### 关键参数
@@ -953,6 +1045,7 @@ Diffusion-Model-SOTA/
 ├── ddpm/              # Pixel-space DDPM
 │   ├── ddpm.py        # Unconditional DDPM
 │   ├── ddpm_conditional.py  # Class-conditional DDPM
+│   ├── ddpm_conditional_ddp.py  # Multi-GPU DDP training
 │   ├── modules.py     # UNet architectures
 │   ├── utils.py       # Utilities
 │   ├── LICENSE
@@ -964,10 +1057,12 @@ Diffusion-Model-SOTA/
 │   ├── models.py       # Model definitions
 │   ├── train.py        # Training script
 │   ├── inference.py    # Inference script
+│   ├── inference_per_class.py  # Batch inference per class
 │   ├── requirements.txt
 │   └── scripts/
 │       ├── train.sh
-│       └── inference.sh
+│       ├── inference.sh
+│       └── inference_per_class.sh
 ├── controlnet/
 │   ├── dataset.py      # Image-mask pair loading
 │   ├── models.py       # ControlNet model
