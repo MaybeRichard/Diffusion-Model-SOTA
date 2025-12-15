@@ -19,6 +19,7 @@ This repository contains implementations of state-of-the-art diffusion models fo
 | **LDM** | Class-Conditional Latent Diffusion Model | Generate images by class label |
 | **ControlNet** | Mask-Guided Image Generation | Generate images following mask structure |
 | **DiT** | Diffusion Transformer (Meta) | SOTA class-conditional generation with Transformer backbone |
+| **ReTree** | DDPM for Retinal Image Generation | Medical imaging with SPADE conditioning |
 
 ### Requirements
 
@@ -452,6 +453,90 @@ torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
 
 ---
 
+### ReTree (Retinal Image Generation)
+
+**From IEEE ICCP 2023**
+
+DDPM-based model for retinal fundus image generation and segmentation. Supports two conditioning methods: **Concatenation** and **SPADE**.
+
+#### Architecture
+- **DDPM (Concatenation)**: Mask concatenated with noisy image as input channels
+- **DDPM_seg (SPADE)**: Spatially-adaptive normalization injects condition via learned scale/bias, preserving more spatial detail
+- **Transformer blocks**: LSA (Local Self-Attention) for feature enhancement
+
+#### Data Structure
+```
+data_root/
+    images/
+        img_001.png
+        img_002.png
+    masks/
+        seg_001.png
+        seg_002.png
+```
+
+#### Training
+
+```bash
+cd ReTree
+
+# Using run.sh script
+bash run.sh train_concat   # Train Concatenation version
+bash run.sh train_spade    # Train SPADE version
+bash run.sh train_all      # Train both versions
+
+# Direct Python command - Concatenation version
+python train_mask2img.py \
+    --mode train \
+    --data_root /path/to/dataset \
+    --image_size 256 \
+    --batch_size 4 \
+    --epochs 500 \
+    --lr 3e-4 \
+    --output_dir ./outputs/mask2img \
+    --device cuda:0
+
+# SPADE version
+python train_mask2img_spade.py \
+    --mode train \
+    --data_root /path/to/dataset \
+    --image_size 256 \
+    --batch_size 4 \
+    --epochs 500 \
+    --output_dir ./outputs/mask2img_spade \
+    --device cuda:0
+```
+
+#### Inference
+
+```bash
+cd ReTree
+
+# Using run.sh script
+bash run.sh sample_concat  # Sample with Concatenation model
+bash run.sh sample_spade   # Sample with SPADE model
+
+# Direct Python command
+python train_mask2img.py \
+    --mode generate \
+    --data_root /path/to/dataset \
+    --checkpoint ./outputs/mask2img/checkpoints/best_model.pth.tar \
+    --output_dir ./outputs/generated \
+    --device cuda:0
+```
+
+#### Key Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--image_size` | Image resolution | 256 |
+| `--batch_size` | Batch size | 4 |
+| `--noise_steps` | Diffusion steps | 1000 |
+| `--emb_dim` | Time embedding dimension | 256 |
+| `--sample_interval` | Generate samples every N batches | 500 |
+
+---
+
 ### Output Information
 
 Both models provide detailed output during training and inference:
@@ -532,6 +617,7 @@ Recall (VGG16):        0.7834
 | **LDM** | 类别条件潜在扩散模型 | 根据类别标签生成图像 |
 | **ControlNet** | 掩码引导图像生成 | 生成遵循掩码结构的图像 |
 | **DiT** | Diffusion Transformer (Meta) | 使用Transformer架构的SOTA类别条件生成 |
+| **ReTree** | 视网膜图像生成DDPM | 医学影像生成，支持SPADE条件注入 |
 
 ### 环境要求
 
@@ -965,6 +1051,90 @@ torchrun --nnodes=1 --nproc_per_node=N sample_ddp.py \
 
 ---
 
+### ReTree（视网膜图像生成）
+
+**来自 IEEE ICCP 2023**
+
+基于DDPM的视网膜眼底图像生成与分割模型。支持两种条件注入方式：**Concatenation** 和 **SPADE**。
+
+#### 架构
+- **DDPM (Concatenation)**: 将mask与噪声图像在通道维度拼接作为输入
+- **DDPM_seg (SPADE)**: 通过空间自适应归一化注入条件信息，保留更多空间细节
+- **Transformer块**: LSA（局部自注意力）用于特征增强
+
+#### 数据结构
+```
+data_root/
+    images/
+        img_001.png
+        img_002.png
+    masks/
+        seg_001.png
+        seg_002.png
+```
+
+#### 训练
+
+```bash
+cd ReTree
+
+# 使用 run.sh 脚本
+bash run.sh train_concat   # 训练 Concatenation 版本
+bash run.sh train_spade    # 训练 SPADE 版本
+bash run.sh train_all      # 训练两个版本
+
+# 直接使用 Python - Concatenation 版本
+python train_mask2img.py \
+    --mode train \
+    --data_root /path/to/dataset \
+    --image_size 256 \
+    --batch_size 4 \
+    --epochs 500 \
+    --lr 3e-4 \
+    --output_dir ./outputs/mask2img \
+    --device cuda:0
+
+# SPADE 版本
+python train_mask2img_spade.py \
+    --mode train \
+    --data_root /path/to/dataset \
+    --image_size 256 \
+    --batch_size 4 \
+    --epochs 500 \
+    --output_dir ./outputs/mask2img_spade \
+    --device cuda:0
+```
+
+#### 推理
+
+```bash
+cd ReTree
+
+# 使用 run.sh 脚本
+bash run.sh sample_concat  # 使用 Concatenation 模型采样
+bash run.sh sample_spade   # 使用 SPADE 模型采样
+
+# 直接使用 Python
+python train_mask2img.py \
+    --mode generate \
+    --data_root /path/to/dataset \
+    --checkpoint ./outputs/mask2img/checkpoints/best_model.pth.tar \
+    --output_dir ./outputs/generated \
+    --device cuda:0
+```
+
+#### 关键参数
+
+| 参数 | 描述 | 默认值 |
+|------|------|--------|
+| `--image_size` | 图像分辨率 | 256 |
+| `--batch_size` | 批次大小 | 4 |
+| `--noise_steps` | 扩散步数 | 1000 |
+| `--emb_dim` | 时间嵌入维度 | 256 |
+| `--sample_interval` | 每N个batch生成样本 | 500 |
+
+---
+
 ### 输出信息
 
 两个模型在训练和推理时都提供详细输出：
@@ -1072,23 +1242,31 @@ Diffusion-Model-SOTA/
 │   └── scripts/
 │       ├── train.sh
 │       └── inference.sh
-└── dit/                # From facebookresearch/DiT
-    ├── models.py       # DiT model definitions
-    ├── train.py        # DDP training script
-    ├── sample.py       # Single-GPU sampling
-    ├── sample_ddp.py   # Multi-GPU sampling
-    ├── download.py     # Pretrained weights download
-    ├── diffusion/      # Diffusion utilities
-    │   ├── __init__.py
-    │   ├── gaussian_diffusion.py
-    │   ├── diffusion_utils.py
-    │   ├── respace.py
-    │   └── timestep_sampler.py
+├── dit/                # From facebookresearch/DiT
+│   ├── models.py       # DiT model definitions
+│   ├── train.py        # DDP training script
+│   ├── sample.py       # Single-GPU sampling
+│   ├── sample_ddp.py   # Multi-GPU sampling
+│   ├── download.py     # Pretrained weights download
+│   ├── diffusion/      # Diffusion utilities
+│   │   ├── __init__.py
+│   │   ├── gaussian_diffusion.py
+│   │   ├── diffusion_utils.py
+│   │   ├── respace.py
+│   │   └── timestep_sampler.py
+│   ├── environment.yml
+│   ├── LICENSE.txt     # CC-BY-NC License
+│   └── scripts/
+│       ├── train.sh
+│       └── sample.sh
+└── ReTree/             # Retinal image generation (IEEE ICCP 2023)
+    ├── DDPM_model.py   # DDPM and DDPM_seg (SPADE) models
+    ├── utils.py        # Dataset classes and utilities
+    ├── train_mask2img.py       # Concatenation version
+    ├── train_mask2img_spade.py # SPADE version
+    ├── run.sh          # Training/sampling script
     ├── environment.yml
-    ├── LICENSE.txt     # CC-BY-NC License
-    └── scripts/
-        ├── train.sh
-        └── sample.sh
+    └── README.md
 ```
 
 ---
@@ -1128,5 +1306,14 @@ If you use this code in your research, please cite the original papers:
   author={William Peebles and Saining Xie},
   year={2022},
   journal={arXiv preprint arXiv:2212.09748},
+}
+
+@inproceedings{alimanov2023denoising,
+  title={Denoising Diffusion Probabilistic Model for Retinal Image Generation and Segmentation},
+  author={Alimanov, Alnur and Islam, Md Baharul},
+  booktitle={2023 IEEE International Conference on Computational Photography (ICCP)},
+  pages={1--12},
+  year={2023},
+  organization={IEEE}
 }
 ```
