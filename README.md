@@ -20,6 +20,7 @@ This repository contains implementations of state-of-the-art diffusion models fo
 | **ControlNet** | Mask-Guided Image Generation | Generate images following mask structure |
 | **DiT** | Diffusion Transformer (Meta) | SOTA class-conditional generation with Transformer backbone |
 | **ReTree** | DDPM for Retinal Image Generation | Medical imaging with SPADE conditioning |
+| **Seg-Guided** | Segmentation-Guided Diffusion (MICCAI 2024) | Precise mask-guided medical image generation |
 
 ### Requirements
 
@@ -537,6 +538,130 @@ python train_mask2img_spade.py \
 
 ---
 
+### Segmentation-Guided Diffusion (MICCAI 2024)
+
+**From Mazurowski Lab, Duke University**
+
+Pixel-space diffusion model with precise segmentation mask guidance. Outperforms SPADE and ControlNet in mask faithfulness for medical imaging. Supports mask-ablated training for handling incomplete segmentation masks.
+
+#### Why Use This Model?
+- **Pixel-space**: No VAE encoding, preserves fine anatomical details
+- **Precise mask obedience**: Generated images faithfully follow input segmentation masks
+- **Mask-ablated training**: Handle incomplete masks with missing classes
+- **Medical imaging focused**: Designed for anatomically-controllable generation
+
+#### Data Structure
+```
+DATA_FOLDER/
+    train/
+        image1.png, image2.png, ...
+    val/
+        image1.png, image2.png, ...
+    test/
+        image1.png, image2.png, ...
+
+MASK_FOLDER/
+    all/
+        train/
+            image1.png, image2.png, ...  # Same filenames as images
+        val/
+            image1.png, image2.png, ...
+        test/
+            image1.png, image2.png, ...
+```
+
+Mask values: integers starting at 0 (background), 1, 2, ... for each class.
+
+#### Training
+
+```bash
+cd segmentation-guided-diffusion
+
+# Segmentation-guided model
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --train_batch_size 16 \
+    --num_epochs 400
+
+# With mask-ablated training (for incomplete masks)
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --use_ablated_segmentations \
+    --train_batch_size 16 \
+    --num_epochs 400
+
+# Unconditional model (no segmentation)
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --train_batch_size 16 \
+    --num_epochs 400
+```
+
+#### Inference
+
+```bash
+cd segmentation-guided-diffusion
+
+# Generate many samples
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode eval_many \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --eval_batch_size 8 \
+    --eval_sample_size 100
+
+# Single batch evaluation (generates image grid)
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode eval \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --eval_batch_size 8
+```
+
+#### Key Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--model_type` | Sampling algorithm (DDIM or DDPM) | DDIM |
+| `--img_size` | Image resolution | 256 |
+| `--num_img_channels` | Image channels (1=grayscale, 3=RGB) | 1 |
+| `--num_segmentation_classes` | Number of classes including background | - |
+| `--use_ablated_segmentations` | Enable mask-ablated training | False |
+| `--eval_sample_size` | Number of samples to generate | 100 |
+
+---
+
 ### Output Information
 
 Both models provide detailed output during training and inference:
@@ -618,6 +743,7 @@ Recall (VGG16):        0.7834
 | **ControlNet** | 掩码引导图像生成 | 生成遵循掩码结构的图像 |
 | **DiT** | Diffusion Transformer (Meta) | 使用Transformer架构的SOTA类别条件生成 |
 | **ReTree** | 视网膜图像生成DDPM | 医学影像生成，支持SPADE条件注入 |
+| **Seg-Guided** | 分割引导扩散模型 (MICCAI 2024) | 精确掩码引导的医学图像生成 |
 
 ### 环境要求
 
@@ -1135,6 +1261,130 @@ python train_mask2img_spade.py \
 
 ---
 
+### 分割引导扩散模型 (MICCAI 2024)
+
+**来自杜克大学 Mazurowski Lab**
+
+像素空间扩散模型，支持精确的分割掩码引导。在医学影像的掩码忠实度方面优于SPADE和ControlNet。支持mask-ablated训练以处理不完整的分割掩码。
+
+#### 为什么选择这个模型？
+- **像素空间**: 无VAE编码，保留精细解剖细节
+- **精确掩码服从**: 生成图像忠实遵循输入分割掩码
+- **Mask-ablated训练**: 处理类别缺失的不完整掩码
+- **医学影像专用**: 专为解剖可控生成设计
+
+#### 数据结构
+```
+DATA_FOLDER/
+    train/
+        image1.png, image2.png, ...
+    val/
+        image1.png, image2.png, ...
+    test/
+        image1.png, image2.png, ...
+
+MASK_FOLDER/
+    all/
+        train/
+            image1.png, image2.png, ...  # 与图像文件名相同
+        val/
+            image1.png, image2.png, ...
+        test/
+            image1.png, image2.png, ...
+```
+
+掩码值：从0（背景）开始的整数，1, 2, ... 表示各类别。
+
+#### 训练
+
+```bash
+cd segmentation-guided-diffusion
+
+# 分割引导模型
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --train_batch_size 16 \
+    --num_epochs 400
+
+# 使用mask-ablated训练（处理不完整掩码）
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --use_ablated_segmentations \
+    --train_batch_size 16 \
+    --num_epochs 400
+
+# 无条件模型（不使用分割掩码）
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode train \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --img_dir /path/to/images \
+    --train_batch_size 16 \
+    --num_epochs 400
+```
+
+#### 推理
+
+```bash
+cd segmentation-guided-diffusion
+
+# 批量生成图像
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode eval_many \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --eval_batch_size 8 \
+    --eval_sample_size 100
+
+# 单批次评估（生成图像网格）
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
+    --mode eval \
+    --model_type DDIM \
+    --img_size 256 \
+    --num_img_channels 1 \
+    --dataset my_dataset \
+    --seg_dir /path/to/masks \
+    --segmentation_guided \
+    --num_segmentation_classes 4 \
+    --eval_batch_size 8
+```
+
+#### 关键参数
+
+| 参数 | 描述 | 默认值 |
+|------|------|--------|
+| `--model_type` | 采样算法（DDIM或DDPM） | DDIM |
+| `--img_size` | 图像分辨率 | 256 |
+| `--num_img_channels` | 图像通道数（1=灰度，3=RGB） | 1 |
+| `--num_segmentation_classes` | 类别数（包括背景） | - |
+| `--use_ablated_segmentations` | 启用mask-ablated训练 | False |
+| `--eval_sample_size` | 生成样本数量 | 100 |
+
+---
+
 ### 输出信息
 
 两个模型在训练和推理时都提供详细输出：
@@ -1259,13 +1509,21 @@ Diffusion-Model-SOTA/
 │   └── scripts/
 │       ├── train.sh
 │       └── sample.sh
-└── ReTree/             # Retinal image generation (IEEE ICCP 2023)
-    ├── DDPM_model.py   # DDPM and DDPM_seg (SPADE) models
-    ├── utils.py        # Dataset classes and utilities
-    ├── train_mask2img.py       # Concatenation version
-    ├── train_mask2img_spade.py # SPADE version
-    ├── run.sh          # Training/sampling script
-    ├── environment.yml
+├── ReTree/             # Retinal image generation (IEEE ICCP 2023)
+│   ├── DDPM_model.py   # DDPM and DDPM_seg (SPADE) models
+│   ├── utils.py        # Dataset classes and utilities
+│   ├── train_mask2img.py       # Concatenation version
+│   ├── train_mask2img_spade.py # SPADE version
+│   ├── run.sh          # Training/sampling commands
+│   ├── environment.yml
+│   └── README.md
+└── segmentation-guided-diffusion/  # MICCAI 2024
+    ├── main.py         # Entry point (train/eval modes)
+    ├── training.py     # TrainingConfig and train_loop
+    ├── eval.py         # Sampling pipelines
+    ├── utils.py        # Helper utilities
+    ├── run.sh          # Training/sampling commands
+    ├── requirements.txt
     └── README.md
 ```
 
@@ -1315,5 +1573,12 @@ If you use this code in your research, please cite the original papers:
   pages={1--12},
   year={2023},
   organization={IEEE}
+}
+
+@inproceedings{konz2024segguideddiffusion,
+  title={Anatomically-Controllable Medical Image Generation with Segmentation-Guided Diffusion Models},
+  author={Nicholas Konz and Yuwen Chen and Haoyu Dong and Maciej A. Mazurowski},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  year={2024}
 }
 ```
