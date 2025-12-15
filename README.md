@@ -480,12 +480,7 @@ data_root/
 ```bash
 cd ReTree
 
-# Using run.sh script
-bash run.sh train_concat   # Train Concatenation version
-bash run.sh train_spade    # Train SPADE version
-bash run.sh train_all      # Train both versions
-
-# Direct Python command - Concatenation version
+# Concatenation version
 python train_mask2img.py \
     --mode train \
     --data_root /path/to/dataset \
@@ -503,6 +498,7 @@ python train_mask2img_spade.py \
     --image_size 256 \
     --batch_size 4 \
     --epochs 500 \
+    --lr 3e-4 \
     --output_dir ./outputs/mask2img_spade \
     --device cuda:0
 ```
@@ -512,16 +508,20 @@ python train_mask2img_spade.py \
 ```bash
 cd ReTree
 
-# Using run.sh script
-bash run.sh sample_concat  # Sample with Concatenation model
-bash run.sh sample_spade   # Sample with SPADE model
-
-# Direct Python command
+# Concatenation version
 python train_mask2img.py \
     --mode generate \
     --data_root /path/to/dataset \
     --checkpoint ./outputs/mask2img/checkpoints/best_model.pth.tar \
-    --output_dir ./outputs/generated \
+    --output_dir ./outputs/mask2img/generated \
+    --device cuda:0
+
+# SPADE version
+python train_mask2img_spade.py \
+    --mode generate \
+    --data_root /path/to/dataset \
+    --checkpoint ./outputs/mask2img_spade/checkpoints/best_model.pth.tar \
+    --output_dir ./outputs/mask2img_spade/generated \
     --device cuda:0
 ```
 
@@ -1078,12 +1078,7 @@ data_root/
 ```bash
 cd ReTree
 
-# 使用 run.sh 脚本
-bash run.sh train_concat   # 训练 Concatenation 版本
-bash run.sh train_spade    # 训练 SPADE 版本
-bash run.sh train_all      # 训练两个版本
-
-# 直接使用 Python - Concatenation 版本
+# Concatenation 版本
 python train_mask2img.py \
     --mode train \
     --data_root /path/to/dataset \
@@ -1101,6 +1096,7 @@ python train_mask2img_spade.py \
     --image_size 256 \
     --batch_size 4 \
     --epochs 500 \
+    --lr 3e-4 \
     --output_dir ./outputs/mask2img_spade \
     --device cuda:0
 ```
@@ -1110,16 +1106,20 @@ python train_mask2img_spade.py \
 ```bash
 cd ReTree
 
-# 使用 run.sh 脚本
-bash run.sh sample_concat  # 使用 Concatenation 模型采样
-bash run.sh sample_spade   # 使用 SPADE 模型采样
-
-# 直接使用 Python
+# Concatenation 版本
 python train_mask2img.py \
     --mode generate \
     --data_root /path/to/dataset \
     --checkpoint ./outputs/mask2img/checkpoints/best_model.pth.tar \
-    --output_dir ./outputs/generated \
+    --output_dir ./outputs/mask2img/generated \
+    --device cuda:0
+
+# SPADE 版本
+python train_mask2img_spade.py \
+    --mode generate \
+    --data_root /path/to/dataset \
+    --checkpoint ./outputs/mask2img_spade/checkpoints/best_model.pth.tar \
+    --output_dir ./outputs/mask2img_spade/generated \
     --device cuda:0
 ```
 

@@ -32,29 +32,9 @@ data_root/
 
 ## 快速开始
 
-### 使用脚本运行
+### 训练
 
-```bash
-# 训练 Concatenation 版本
-bash run.sh train_concat
-
-# 训练 SPADE 版本
-bash run.sh train_spade
-
-# 训练两个版本
-bash run.sh train_all
-
-# 使用训练好的模型采样
-bash run.sh sample_concat
-bash run.sh sample_spade
-
-# 训练并采样所有版本
-bash run.sh all
-```
-
-### 直接使用Python
-
-**训练 Concatenation 版本:**
+**Concatenation 版本:**
 ```bash
 python train_mask2img.py \
     --mode train \
@@ -67,7 +47,7 @@ python train_mask2img.py \
     --device cuda:0
 ```
 
-**训练 SPADE 版本:**
+**SPADE 版本:**
 ```bash
 python train_mask2img_spade.py \
     --mode train \
@@ -80,15 +60,29 @@ python train_mask2img_spade.py \
     --device cuda:0
 ```
 
-**生成图像:**
+### 推理
+
+**Concatenation 版本:**
 ```bash
 python train_mask2img.py \
     --mode generate \
     --data_root /path/to/dataset \
     --checkpoint ./outputs/mask2img/checkpoints/best_model.pth.tar \
-    --output_dir ./outputs/generated \
+    --output_dir ./outputs/mask2img/generated \
     --device cuda:0
 ```
+
+**SPADE 版本:**
+```bash
+python train_mask2img_spade.py \
+    --mode generate \
+    --data_root /path/to/dataset \
+    --checkpoint ./outputs/mask2img_spade/checkpoints/best_model.pth.tar \
+    --output_dir ./outputs/mask2img_spade/generated \
+    --device cuda:0
+```
+
+> 更多命令示例参见 `run.sh`
 
 ## 配置参数
 
